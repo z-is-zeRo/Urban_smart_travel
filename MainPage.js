@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, TextInput } from 'react-native';
 import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 
+const GOOGLE_API_KEY = 'AIzaSyDLzP2esNLkV8FKAALe_rfZvXWuYSbSm6k'; 
+
 function MainPage() {
   const [events, setEvents] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigation = useNavigation();
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    async function fetchEvents() {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status === 'granted') {
         const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
         if (calendars.length > 0) {
           const calendarId = calendars[0].id;
           const startDate = new Date();
-          const endDate = new Date(startDate.getFullYear() + 1);
-
+          const endDate = new Date();
+          endDate.setFullYear(startDate.getFullYear() + 1);
           const calendarEvents = await Calendar.getEventsAsync([calendarId], startDate, endDate);
           const eventsWithLocation = await Promise.all(calendarEvents.map(async event => {
             if (event.location) {
@@ -26,7 +29,7 @@ function MainPage() {
                 return { ...event, location };
               } catch (error) {
                 console.error('Geocoding failed for:', event.location, error);
-                return event; // Return the event without location if geocoding fails
+                return event;
               }
             }
             return event;
@@ -34,34 +37,44 @@ function MainPage() {
           setEvents(eventsWithLocation);
         }
       } else {
-        Alert.alert('Permissions required', 'Calendar access is needed to fetch events');
+        Alert.alert('Permissions required', 'Calendar access is needed to fetch events.');
       }
-    };
+    }
 
     fetchEvents();
   }, []);
 
   const geocodeAddress = async (address) => {
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-      const response = await axios.get(url);
-      if (response.data.length > 0) {
-        const { lat, lon } = response.data[0];
-        return { latitude: parseFloat(lat), longitude: parseFloat(lon) };
+      const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_API_KEY}`);
+      if (response.data.status === 'OK') {
+        const { lat, lng } = response.data.results[0].geometry.location;
+        return { latitude: lat, longitude: lng };
       } else {
-        throw new Error('No results found');
+        throw new Error('Geocoding failed with status: ' + response.data.status);
       }
     } catch (error) {
+      console.error('Failed to geocode address', error);
       throw error;
     }
   };
+
+  const filteredEvents = events.filter(event => 
+    event.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
       <ScrollView>
         <Image source={require('./assets/logo.jpeg')} style={styles.logo} />
         <Text style={styles.header}>Scheduled Activities</Text>
-        {events.map((event, index) => (
+        <TextInput
+          style={styles.searchBar}
+          placeholder="Search activities..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {filteredEvents.map((event, index) => (
           <TouchableOpacity
             key={index}
             style={styles.activityItem}
@@ -88,16 +101,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 200,
+    height: 200,
     alignSelf: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   header: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginVertical: 20,
     textAlign: 'center',
+    marginVertical: 20,
+  },
+  searchBar: {
+    fontSize: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 10,
   },
   activityItem: {
     flexDirection: 'row',

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Button, StyleSheet, ActivityIndicator } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
+
+const GOOGLE_API_KEY = 'AIzaSyCcP9fE-9Q3JxHN-Ctpwt4rgw2XMqoV9uQ';
 
 const ItinerairePage = ({ route }) => {
   const { event } = route.params;
@@ -20,28 +22,61 @@ const ItinerairePage = ({ route }) => {
 
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
+      if (event.location) {
+        fetchDirections(location.coords, event.location);
+      }
     };
 
     fetchCurrentLocation();
   }, []);
 
-  const fetchDirections = async () => {
-    if (!currentLocation || !event.location) {
-      setError('Current location or event location is not available.');
-      return;
-    }
+  const fetchDirections = async (startCoords, destinationCoords) => {
     try {
-      const response = await axios.get(`https://api.mapbox.com/directions/v5/mapbox/driving/${currentLocation.longitude},${currentLocation.latitude};${event.location.longitude},${event.location.latitude}?geometries=geojson&access_token=pk.eyJ1IjoiemVybzAwMDAiLCJhIjoiY2x3bW90NWQyMGd0ODJqcHM0dTlscnRpaCJ9.eEJ6ykSmA1Fg3Ps9ARjKdg`);
-      const directions = response.data.routes[0];
-      setRouteDetails({
-        coordinates: directions.geometry.coordinates.map(coord => ({ latitude: coord[1], longitude: coord[0] })),
-        duration: directions.duration,
-        distance: directions.distance
-      });
+      const response = await axios.get(`https://maps.googleapis.com/maps/api/directions/json?origin=${startCoords.latitude},${startCoords.longitude}&destination=${destinationCoords.latitude},${destinationCoords.longitude}&mode=transit&key=${GOOGLE_API_KEY}`);
+      if (response.data.status === 'OK') {
+        const points = decodePolyline(response.data.routes[0].overview_polyline.points);
+        setRouteDetails({
+          coordinates: points,
+          duration: response.data.routes[0].legs[0].duration.text,
+          distance: response.data.routes[0].legs[0].distance.text
+        });
+      } else {
+        throw new Error(`Directions request failed with status: ${response.data.status}`);
+      }
     } catch (error) {
       setError(`Failed to get directions: ${error.message}`);
     }
   };
+
+  function decodePolyline(encoded) {
+    let poly = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
+
+    while (index < len) {
+      let b, shift = 0, result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      poly.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+    }
+
+    return poly;
+  }
 
   if (error) {
     return <View style={styles.container}><Text>{error}</Text></View>;
@@ -49,7 +84,7 @@ const ItinerairePage = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <Button title="Get Directions" onPress={fetchDirections} />
+      <Button title="Get Directions" onPress={() => event.location && fetchDirections(currentLocation, event.location)} />
       {routeDetails ? (
         <MapView
           style={styles.map}

@@ -1,21 +1,58 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ActivitiesScreen = ({ navigation, route }) => {
-  const initialForm = route.params?.screen || 'signin';
-  const [form, setForm] = useState(initialForm);
+const ActivitiesScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  const [postalCode, setPostalCode] = useState('');
+  const [form, setForm] = useState('signin');
 
-  const handleSignIn = () => {
-    navigation.navigate('Main', { screen: 'Activities' });
+  const storeUser = async (username, password) => {
+    if (username.trim() === '' || password.trim() === '') {
+      alert('Username and password cannot be empty.');
+      return;
+    }
+    try {
+      await AsyncStorage.setItem(username, password);
+      alert('User registered successfully!');
+      navigation.navigate('Main', { screen: 'Activities' });
+    } catch (e) {
+      alert('Failed to save the user.');
+    }
+  };
+
+  const verifyUser = async (username, password) => {
+    if (username.trim() === '' || password.trim() === '') {
+      alert('Username and password cannot be empty.');
+      return;
+    }
+    try {
+      const storedPassword = await AsyncStorage.getItem(username);
+      if (storedPassword !== null && storedPassword === password) {
+        navigation.navigate('Main', { screen: 'Activities' });
+      } else {
+        alert('Invalid username or password!');
+      }
+    } catch (e) {
+      alert('Failed to sign in.');
+    }
   };
 
   const handleSignUp = () => {
-    navigation.navigate('Main', { screen: 'Activities' });
+    if (username.trim() === '' || password.trim() === '' || confirmPassword.trim() === '') {
+      alert('Please fill out all fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
+    storeUser(username, password);
+  };
+
+  const handleSignIn = () => {
+    verifyUser(username, password);
   };
 
   return (
@@ -23,16 +60,20 @@ const ActivitiesScreen = ({ navigation, route }) => {
       <Image source={require('./assets/logo.jpeg')} style={styles.logo} />
       <Text style={styles.title}>Urban Smart Travel</Text>
       <Text style={styles.subtitle}>Application</Text>
-      
+
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={[styles.button, form === 'signin' ? styles.activeButton : {}]} onPress={() => setForm('signin')}>
+        <TouchableOpacity
+          style={[styles.button, form === 'signin' ? styles.activeButton : {}]}
+          onPress={() => setForm('signin')}>
           <Text style={styles.buttonText}>SIGN IN</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, form === 'signup' ? styles.activeButton : {}]} onPress={() => setForm('signup')}>
+        <TouchableOpacity
+          style={[styles.button, form === 'signup' ? styles.activeButton : {}]}
+          onPress={() => setForm('signup')}>
           <Text style={styles.buttonText}>SIGN UP</Text>
         </TouchableOpacity>
       </View>
-      
+
       {form === 'signin' ? (
         <View style={styles.form}>
           <TextInput
@@ -62,12 +103,6 @@ const ActivitiesScreen = ({ navigation, route }) => {
           />
           <TextInput
             style={styles.input}
-            placeholder="Name"
-            value={name}
-            onChangeText={setName}
-          />
-          <TextInput
-            style={styles.input}
             placeholder="Password"
             secureTextEntry
             value={password}
@@ -79,12 +114,6 @@ const ActivitiesScreen = ({ navigation, route }) => {
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Postal Code"
-            value={postalCode}
-            onChangeText={setPostalCode}
           />
           <TouchableOpacity style={styles.connectButton} onPress={handleSignUp}>
             <Text style={styles.connectButtonText}>Create</Text>
@@ -103,9 +132,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff'
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 20
+    width: 200,
+    height: 200,
+    marginBottom: 10
   },
   title: {
     fontSize: 24,
