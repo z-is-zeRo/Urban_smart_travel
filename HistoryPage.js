@@ -14,9 +14,9 @@ function HistoryPage({ navigation }) {
           const calendarId = calendars[0].id;
           const endDate = new Date();
           const startDate = new Date();
-          startDate.setMonth(endDate.getMonth() - 2); // Set to two months ago
+          startDate.setMonth(endDate.getMonth() - 2); 
           const calendarEvents = await Calendar.getEventsAsync([calendarId], startDate, endDate);
-          setEvents(calendarEvents.slice(0, 6)); // Get only up to 6 past events
+          setEvents(calendarEvents.slice(0, 6)); 
         }
       } else {
         Alert.alert('Permissions required', 'Calendar access is needed to fetch events.');
