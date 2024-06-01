@@ -4,7 +4,7 @@ import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 
-const GOOGLE_API_KEY = 'AIzaSyDLzP2esNLkV8FKAALe_rfZvXWuYSbSm6k'; 
+const GOOGLE_API_KEY = ''; 
 
 function MainPage() {
   const [events, setEvents] = useState([]);

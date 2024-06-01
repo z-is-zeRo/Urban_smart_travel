@@ -4,7 +4,7 @@ import MapView, { Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
-const GOOGLE_API_KEY = 'AIzaSyCcP9fE-9Q3JxHN-Ctpwt4rgw2XMqoV9uQ';
+const GOOGLE_API_KEY = '';
 
 const ItinerairePage = ({ route }) => {
   const { event } = route.params;
