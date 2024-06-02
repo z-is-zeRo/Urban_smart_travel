@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, ActivityIndicator } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
-const GOOGLE_API_KEY = '';
+const GOOGLE_API_KEY = 'AIzaSyCcP9fE-9Q3JxHN-Ctpwt4rgw2XMqoV9uQ';
 
-const ItinerairePage = ({ route }) => {
-  const { event } = route.params;
+function ItinerairePage({ route }) {
+  const { latitude, longitude } = route.params;
   const [routeDetails, setRouteDetails] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState('');
@@ -22,9 +22,7 @@ const ItinerairePage = ({ route }) => {
 
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
-      if (event.location) {
-        fetchDirections(location.coords, event.location);
-      }
+      fetchDirections(location.coords, { latitude, longitude });
     };
 
     fetchCurrentLocation();
@@ -84,7 +82,7 @@ const ItinerairePage = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <Button title="Get Directions" onPress={() => event.location && fetchDirections(currentLocation, event.location)} />
+      <Button title="Get Directions" onPress={() => fetchDirections(currentLocation, { latitude, longitude })} />
       {routeDetails ? (
         <MapView
           style={styles.map}
@@ -94,6 +92,7 @@ const ItinerairePage = ({ route }) => {
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
           }}>
+          <Marker coordinate={{ latitude, longitude }} title="Destination" />
           <Polyline coordinates={routeDetails.coordinates} strokeWidth={4} strokeColor="red" />
         </MapView>
       ) : (
@@ -101,7 +100,7 @@ const ItinerairePage = ({ route }) => {
       )}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

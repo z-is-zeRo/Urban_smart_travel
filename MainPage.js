@@ -4,7 +4,7 @@ import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 
-const GOOGLE_API_KEY = ''; 
+const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs'; 
 
 function MainPage() {
   const [events, setEvents] = useState([]);
@@ -29,7 +29,7 @@ function MainPage() {
                 return { ...event, location };
               } catch (error) {
                 console.error('Geocoding failed for:', event.location, error);
-                return event;
+                return { ...event, location: null };
               }
             }
             return event;
@@ -59,9 +59,7 @@ function MainPage() {
     }
   };
 
-  const filteredEvents = events.filter(event => 
-    event.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredEvents = events.filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <View style={styles.container}>
@@ -80,7 +78,7 @@ function MainPage() {
             style={styles.activityItem}
             onPress={() => {
               if (event.location) {
-                navigation.navigate('Itineraire', { event });
+                navigation.navigate('ItinerairePage', { latitude: event.location.latitude, longitude: event.location.longitude });
               } else {
                 Alert.alert('Error', 'No location data available for this event');
               }
