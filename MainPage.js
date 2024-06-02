@@ -4,7 +4,7 @@ import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 
-const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs'; 
+const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
 const geocodeAddress = async (address) => {
   try {

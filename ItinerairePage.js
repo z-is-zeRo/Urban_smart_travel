@@ -4,13 +4,15 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
-const GOOGLE_API_KEY = 'AIzaSyCcP9fE-9Q3JxHN-Ctpwt4rgw2XMqoV9uQ';
+const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
 function ItinerairePage({ route }) {
   const { latitude, longitude } = route.params;
   const [routeDetails, setRouteDetails] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState('');
+
+  console.log(latitude, longitude);
 
   useEffect(() => {
     const fetchCurrentLocation = async () => {

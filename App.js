@@ -17,14 +17,14 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen 
-          name="Main"  // Ceci mènera au TabNavigator incluant MainPage
+          name="Main"  
           component={TabNavigator}
           options={{ headerShown: false }}
         />
         <Stack.Screen 
-          name="ItinerairePage"  // Ajout d'ItinerairePage ici
+          name="ItinerairePage"  
           component={ItinerairePage}
-          options={{ headerShown: true }}  // Vous pouvez ajuster ceci si nécessaire
+          options={{ headerShown: true }}  
         />
       </Stack.Navigator>
     </NavigationContainer>
