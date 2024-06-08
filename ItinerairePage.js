@@ -6,28 +6,34 @@ import axios from 'axios';
 
 const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
-function ItinerairePage({ route }) {
-  const { latitude, longitude } = route.params;
+function ItinerairePage() {
   const [routeDetails, setRouteDetails] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState('');
 
-  console.log(latitude, longitude);
-
   useEffect(() => {
-    const fetchCurrentLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Permission to access location was denied');
-        return;
-      }
+    const fetchCurrentLocationAndDirections = async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setError('Permission to access location was denied');
+          return;
+        }
 
-      let location = await Location.getCurrentPositionAsync({});
-      setCurrentLocation(location.coords);
-      fetchDirections(location.coords, { latitude, longitude });
+        let location = await Location.getCurrentPositionAsync({});
+        setCurrentLocation(location.coords);
+
+        // Using static coordinates for origin and destination
+        fetchDirections(
+          { latitude: 37.77, longitude: -122.447 }, // Origin coordinates
+          { latitude: 37.768, longitude: -122.511 } // Destination coordinates
+        );
+      } catch (err) {
+        setError('Failed to fetch current location: ' + err.message);
+      }
     };
 
-    fetchCurrentLocation();
+    fetchCurrentLocationAndDirections();
   }, []);
 
   const fetchDirections = async (startCoords, destinationCoords) => {
@@ -82,9 +88,17 @@ function ItinerairePage({ route }) {
     return <View style={styles.container}><Text>{error}</Text></View>;
   }
 
+  if (!currentLocation) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Button title="Get Directions" onPress={() => fetchDirections(currentLocation, { latitude, longitude })} />
+      <Button title="Get Directions" onPress={() => fetchDirections(currentLocation, { latitude: 37.768, longitude: -122.511 })} />
       {routeDetails ? (
         <MapView
           style={styles.map}
@@ -94,7 +108,7 @@ function ItinerairePage({ route }) {
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
           }}>
-          <Marker coordinate={{ latitude, longitude }} title="Destination" />
+          <Marker coordinate={{ latitude: 37.768, longitude: -122.511 }} title="Destination" />
           <Polyline coordinates={routeDetails.coordinates} strokeWidth={4} strokeColor="red" />
         </MapView>
       ) : (
