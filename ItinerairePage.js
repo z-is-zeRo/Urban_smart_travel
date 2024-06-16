@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image, Button } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
@@ -28,9 +28,13 @@ function RouteStep({ step }) {
       </TouchableOpacity>
       <Collapsible collapsed={collapsed}>
         <Text style={styles.stepDetails}>{step.details}</Text>
-        {step.stops && step.stops.map((stop, index) => (
-          <Text key={index} style={styles.stopText}>{stop}</Text>
-        ))}
+        {step.stops && (
+          <View>
+            {step.stops.map((stop, index) => (
+              <Text key={index} style={styles.stopText}>{stop}</Text>
+            ))}
+          </View>
+        )}
       </Collapsible>
     </View>
   );
@@ -44,7 +48,7 @@ function ItinerairePage({ route }) {
   const [currentLocation, setCurrentLocation] = useState(null);
 
   useEffect(() => {
-    async function getCurrentLocation() {
+    const getCurrentLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.error('Location permission not granted');
@@ -53,37 +57,40 @@ function ItinerairePage({ route }) {
 
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
-    }
+      console.log("Current Location:", location.coords); // Logging current location
+    };
 
     getCurrentLocation();
   }, []);
 
   useEffect(() => {
-    async function fetchDirections(mode) {
-      if (!currentLocation) return;
+    if (!currentLocation) return;
+
+    console.log("Destination Coordinates:", { latitude, longitude }); // Logging destination coordinates
+
+    const fetchDirections = async (mode) => {
       const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
       const destination = `${latitude},${longitude}`;
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
 
       try {
         const response = await axios.get(url);
-        if (response.data.status === 'OK' && response.data.routes.length > 0) {
+        if (response.data.routes.length > 0) {
           const route = response.data.routes[0];
           const steps = route.legs[0].steps.map(step => ({
             mode: mode,
             instruction: step.html_instructions,
             details: `${step.distance.text}, about ${step.duration.text}`,
-            stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : []
+            stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : null
           }));
           setRouteDetails(steps);
         } else {
           console.error("No routes found.");
-          setRouteDetails([]);
         }
       } catch (error) {
         console.error("Failed to fetch directions:", error);
       }
-    }
+    };
 
     fetchDirections(selectedMode);
   }, [selectedMode, currentLocation]);
@@ -96,7 +103,7 @@ function ItinerairePage({ route }) {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalView}>
-          {Object.keys(icons).map(mode => (
+          {Object.keys(icons).map((mode) => (
             <TouchableOpacity key={mode} onPress={() => {
               setSelectedMode(mode);
               setModalVisible(false);
@@ -119,8 +126,8 @@ function ItinerairePage({ route }) {
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         }}>
-        <Marker coordinate={{ latitude, longitude }} title={"Destination"} />
         {currentLocation && <Marker coordinate={currentLocation} title={"Your Location"} />}
+        <Marker coordinate={{ latitude, longitude }} title={"Destination"} />
       </MapView>
 
       <ScrollView style={styles.stepsContainer}>
