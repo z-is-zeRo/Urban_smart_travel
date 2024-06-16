@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image, Button } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import Collapsible from 'react-native-collapsible';
 
-const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs'; // Use your actual Google API key
+const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
 const icons = {
   DRIVING: require('./assets/car.png'),
@@ -28,20 +28,16 @@ function RouteStep({ step }) {
       </TouchableOpacity>
       <Collapsible collapsed={collapsed}>
         <Text style={styles.stepDetails}>{step.details}</Text>
-        {step.stops && (
-          <View>
-            {step.stops.map((stop, index) => (
-              <Text key={index} style={styles.stopText}>{stop}</Text>
-            ))}
-          </View>
-        )}
+        {step.stops && step.stops.map((stop, index) => (
+          <Text key={index} style={styles.stopText}>{stop}</Text>
+        ))}
       </Collapsible>
     </View>
   );
 }
 
 function ItinerairePage({ route }) {
-  const { latitude, longitude } = route.params;
+  const { latitude, longitude, eventName, eventAddress } = route.params;
   const [routeDetails, setRouteDetails] = useState([]);
   const [selectedMode, setSelectedMode] = useState('DRIVING');
   const [modalVisible, setModalVisible] = useState(false);
@@ -57,35 +53,33 @@ function ItinerairePage({ route }) {
 
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
-      console.log("Current Location:", location.coords); // Logging current location
     };
 
     getCurrentLocation();
   }, []);
 
   useEffect(() => {
-    if (!currentLocation) return;
-
-    console.log("Destination Coordinates:", { latitude, longitude }); // Logging destination coordinates
-
     const fetchDirections = async (mode) => {
+      if (!currentLocation) return;
+
       const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
       const destination = `${latitude},${longitude}`;
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
 
       try {
         const response = await axios.get(url);
-        if (response.data.routes.length > 0) {
+        if (response.data.status === 'OK' && response.data.routes.length > 0) {
           const route = response.data.routes[0];
           const steps = route.legs[0].steps.map(step => ({
             mode: mode,
             instruction: step.html_instructions,
             details: `${step.distance.text}, about ${step.duration.text}`,
-            stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : null
+            stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : []
           }));
           setRouteDetails(steps);
         } else {
           console.error("No routes found.");
+          setRouteDetails([]);
         }
       } catch (error) {
         console.error("Failed to fetch directions:", error);
@@ -97,12 +91,21 @@ function ItinerairePage({ route }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.infoHeader}>
+        <Text style={styles.eventName}>{eventName}</Text>
+        <Text style={styles.eventAddress}>{eventAddress}</Text>
+      </View>
+      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.changeModeButton}>
+        <Text style={styles.changeModeText}>{selectedMode}</Text>
+      </TouchableOpacity>
       <Modal
         visible={modalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalView}>
+        onRequestClose={() => {
+          setModalVisible(false);
+        }}>
+        <View style={styles.modalCompactView}>
           {Object.keys(icons).map((mode) => (
             <TouchableOpacity key={mode} onPress={() => {
               setSelectedMode(mode);
@@ -111,12 +114,11 @@ function ItinerairePage({ route }) {
               <Text style={styles.modalText}>{mode}</Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity onPress={() => setModalVisible(false)}>
+            <Text style={styles.modalText}>Cancel</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
-
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.button}>
-        <Text>Change Mode</Text>
-      </TouchableOpacity>
 
       <MapView
         style={styles.map}
@@ -146,6 +148,9 @@ const styles = StyleSheet.create({
   },
   map: {
     height: 300,
+    margin: 5,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
   stepsContainer: {
     flex: 1,
@@ -171,15 +176,21 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  modalView: {
-    flex: 1,
+  modalCompactView: {
     marginTop: '50%',
     backgroundColor: 'white',
     padding: 20,
+    alignItems: 'center',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalText: {
-    fontSize: 18,
-    marginBottom: 15,
+    fontSize: 16,
+    marginBottom: 10,
   },
   button: {
     padding: 10,
@@ -189,7 +200,45 @@ const styles = StyleSheet.create({
   stopText: {
     fontSize: 16,
     paddingLeft: 20,
-  }
+  },
+  infoHeader: {
+    padding: 10,
+    backgroundColor: 'lightgrey',
+    margin: 10,
+    borderRadius: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  eventName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  eventAddress: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 5,
+  },
+  transportMode: {
+    fontSize: 16,
+    color: '#666',
+  },
+  changeModeButton: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    backgroundColor: 'grey',
+    padding: 5,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  changeModeText: {
+    color: 'white',
+    fontSize: 12,
+  },
 });
 
 export default ItinerairePage;

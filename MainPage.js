@@ -8,11 +8,10 @@ const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
 const geocodeAddress = async (address) => {
   try {
-    const formattedAddress = address.replace(/[^a-zA-Z0-9\s,]/g, ''); // Strip non-alphanumeric characters, except commas
+    const formattedAddress = address.replace(/[^a-zA-Z0-9\s,]/g, ''); 
     const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(formattedAddress)}&key=${GOOGLE_API_KEY}`);
     if (response.data.status === 'OK') {
       const { lat, lng } = response.data.results[0].geometry.location;
-      console.log(`Geocoded coordinates for ${address}: Latitude ${lat}, Longitude ${lng}`); // Logging the coordinates
       return { latitude: lat, longitude: lng };
     } else {
       throw new Error('Geocoding failed with status: ' + response.data.status);
@@ -41,13 +40,8 @@ function MainPage() {
           const calendarEvents = await Calendar.getEventsAsync([calendarId], startDate, endDate);
           const eventsWithLocation = await Promise.all(calendarEvents.map(async event => {
             if (event.location && typeof event.location === 'string') {
-              try {
-                const location = await geocodeAddress(event.location);
-                return { ...event, location };
-              } catch (error) {
-                console.error('Geocoding failed for:', event.location, error);
-                return { ...event, location: null };
-              }
+              const location = await geocodeAddress(event.location);
+              return { ...event, location, originalLocation: event.location };
             }
             return event;
           }));
@@ -80,7 +74,12 @@ function MainPage() {
             style={styles.activityItem}
             onPress={() => {
               if (event.location) {
-                navigation.navigate('ItinerairePage', { latitude: event.location.latitude, longitude: event.location.longitude });
+                navigation.navigate('ItinerairePage', {
+                  latitude: event.location.latitude,
+                  longitude: event.location.longitude,
+                  eventName: event.title,
+                  eventAddress: event.originalLocation
+                });
               } else {
                 Alert.alert('Error', 'No location data available for this event');
               }
