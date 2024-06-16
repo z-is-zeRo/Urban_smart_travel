@@ -1,119 +1,133 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, ActivityIndicator } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
+import Collapsible from 'react-native-collapsible';
 
-const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
+const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs'; // Use your actual Google API key
 
-function ItinerairePage() {
-  const [routeDetails, setRouteDetails] = useState(null);
+const icons = {
+  DRIVING: require('./assets/car.png'),
+  WALKING: require('./assets/pieds3.png'),
+  BICYCLING: require('./assets/velo2.png'),
+  TRANSIT: require('./assets/bus3.png'),
+};
+
+function TransportIcon({ mode }) {
+  return <Image source={icons[mode]} style={styles.iconStyle} />;
+}
+
+function RouteStep({ step }) {
+  const [collapsed, setCollapsed] = useState(true);
+  return (
+    <View style={styles.stepContainer}>
+      <TouchableOpacity onPress={() => setCollapsed(!collapsed)} style={styles.stepHeader}>
+        <TransportIcon mode={step.mode} />
+        <Text style={styles.stepText}>{step.instruction.replace(/<[^>]+>/g, '')}</Text>
+      </TouchableOpacity>
+      <Collapsible collapsed={collapsed}>
+        <Text style={styles.stepDetails}>{step.details}</Text>
+        {step.stops && step.stops.map((stop, index) => (
+          <Text key={index} style={styles.stopText}>{stop}</Text>
+        ))}
+      </Collapsible>
+    </View>
+  );
+}
+
+function ItinerairePage({ route }) {
+  const { latitude, longitude } = route.params;
+  const [routeDetails, setRouteDetails] = useState([]);
+  const [selectedMode, setSelectedMode] = useState('DRIVING');
+  const [modalVisible, setModalVisible] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchCurrentLocationAndDirections = async () => {
-      try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setError('Permission to access location was denied');
-          return;
-        }
-
-        let location = await Location.getCurrentPositionAsync({});
-        setCurrentLocation(location.coords);
-
-        // Using static coordinates for origin and destination
-        fetchDirections(
-          { latitude: 37.77, longitude: -122.447 }, // Origin coordinates
-          { latitude: 37.768, longitude: -122.511 } // Destination coordinates
-        );
-      } catch (err) {
-        setError('Failed to fetch current location: ' + err.message);
+    async function getCurrentLocation() {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('Location permission not granted');
+        return;
       }
-    };
 
-    fetchCurrentLocationAndDirections();
+      let location = await Location.getCurrentPositionAsync({});
+      setCurrentLocation(location.coords);
+    }
+
+    getCurrentLocation();
   }, []);
 
-  const fetchDirections = async (startCoords, destinationCoords) => {
-    try {
-      const response = await axios.get(`https://maps.googleapis.com/maps/api/directions/json?origin=${startCoords.latitude},${startCoords.longitude}&destination=${destinationCoords.latitude},${destinationCoords.longitude}&mode=transit&key=${GOOGLE_API_KEY}`);
-      if (response.data.status === 'OK') {
-        const points = decodePolyline(response.data.routes[0].overview_polyline.points);
-        setRouteDetails({
-          coordinates: points,
-          duration: response.data.routes[0].legs[0].duration.text,
-          distance: response.data.routes[0].legs[0].distance.text
-        });
-      } else {
-        throw new Error(`Directions request failed with status: ${response.data.status}`);
+  useEffect(() => {
+    async function fetchDirections(mode) {
+      if (!currentLocation) return;
+      const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
+      const destination = `${latitude},${longitude}`;
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
+
+      try {
+        const response = await axios.get(url);
+        if (response.data.status === 'OK' && response.data.routes.length > 0) {
+          const route = response.data.routes[0];
+          const steps = route.legs[0].steps.map(step => ({
+            mode: mode,
+            instruction: step.html_instructions,
+            details: `${step.distance.text}, about ${step.duration.text}`,
+            stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : []
+          }));
+          setRouteDetails(steps);
+        } else {
+          console.error("No routes found.");
+          setRouteDetails([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch directions:", error);
       }
-    } catch (error) {
-      setError(`Failed to get directions: ${error.message}`);
-    }
-  };
-
-  function decodePolyline(encoded) {
-    let poly = [];
-    let index = 0, len = encoded.length;
-    let lat = 0, lng = 0;
-
-    while (index < len) {
-      let b, shift = 0, result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      poly.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
     }
 
-    return poly;
-  }
-
-  if (error) {
-    return <View style={styles.container}><Text>{error}</Text></View>;
-  }
-
-  if (!currentLocation) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
-      </View>
-    );
-  }
+    fetchDirections(selectedMode);
+  }, [selectedMode, currentLocation]);
 
   return (
     <View style={styles.container}>
-      <Button title="Get Directions" onPress={() => fetchDirections(currentLocation, { latitude: 37.768, longitude: -122.511 })} />
-      {routeDetails ? (
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: currentLocation.latitude,
-            longitude: currentLocation.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}>
-          <Marker coordinate={{ latitude: 37.768, longitude: -122.511 }} title="Destination" />
-          <Polyline coordinates={routeDetails.coordinates} strokeWidth={4} strokeColor="red" />
-        </MapView>
-      ) : (
-        <ActivityIndicator size="large" color="#0000ff" />
-      )}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalView}>
+          {Object.keys(icons).map(mode => (
+            <TouchableOpacity key={mode} onPress={() => {
+              setSelectedMode(mode);
+              setModalVisible(false);
+            }}>
+              <Text style={styles.modalText}>{mode}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Modal>
+
+      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.button}>
+        <Text>Change Mode</Text>
+      </TouchableOpacity>
+
+      <MapView
+        style={styles.map}
+        region={{
+          latitude: currentLocation ? currentLocation.latitude : latitude,
+          longitude: currentLocation ? currentLocation.longitude : longitude,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        }}>
+        <Marker coordinate={{ latitude, longitude }} title={"Destination"} />
+        {currentLocation && <Marker coordinate={currentLocation} title={"Your Location"} />}
+      </MapView>
+
+      <ScrollView style={styles.stepsContainer}>
+        {routeDetails.map((step, index) => (
+          <RouteStep key={index} step={step} />
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -121,9 +135,53 @@ function ItinerairePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
   },
   map: {
+    height: 300,
+  },
+  stepsContainer: {
     flex: 1,
+    padding: 10,
+  },
+  stepContainer: {
+    marginBottom: 10,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ddd',
+    padding: 10,
+  },
+  stepText: {
+    marginLeft: 10,
+  },
+  stepDetails: {
+    padding: 10,
+    paddingLeft: 35,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  modalView: {
+    flex: 1,
+    marginTop: '50%',
+    backgroundColor: 'white',
+    padding: 20,
+  },
+  modalText: {
+    fontSize: 18,
+    marginBottom: 15,
+  },
+  button: {
+    padding: 10,
+    backgroundColor: 'blue',
+    alignItems: 'center',
+  },
+  stopText: {
+    fontSize: 16,
+    paddingLeft: 20,
   }
 });
 
