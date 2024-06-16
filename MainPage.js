@@ -22,6 +22,33 @@ const geocodeAddress = async (address) => {
   }
 };
 
+const openCalendarToAddEvent = async () => {
+  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  if (status === 'granted') {
+    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+    if (calendars.length > 0) {
+      const defaultCalendar = calendars.find(cal => cal.allowsModifications) || calendars[0];
+      const startDate = new Date();
+      const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // 2 heures plus tard
+      try {
+        const eventId = await Calendar.createEventAsync(defaultCalendar.id, {
+          title: 'Nouvel Événement',
+          startDate,
+          endDate,
+          timeZone: 'Europe/Paris'
+        });
+        await Calendar.openEventInCalendar(eventId);
+      } catch (error) {
+        console.error("Erreur lors de l'ajout de l'événement: ", error);
+      }
+    } else {
+      Alert.alert("Aucun calendrier disponible pour ajouter un événement");
+    }
+  } else {
+    Alert.alert("Permission refusée", "L'application a besoin de la permission pour accéder au calendrier.");
+  }
+};
+
 function MainPage() {
   const [events, setEvents] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,6 +116,9 @@ function MainPage() {
             <Text style={styles.activityText}>{event.title} - {new Date(event.startDate).toLocaleDateString()}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity onPress={openCalendarToAddEvent} style={styles.addButton}>
+          <Image source={require('./assets/add2.png')} style={styles.addIcon} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -100,10 +130,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logo: {
-    width: 200,
+    width: '100%',
     height: 200,
     alignSelf: 'center',
-    marginTop: 10,
   },
   header: {
     fontSize: 20,
@@ -136,6 +165,14 @@ const styles = StyleSheet.create({
   },
   activityText: {
     fontSize: 16,
+  },
+  addButton: {
+    alignItems: 'center',
+    padding: 10,
+  },
+  addIcon: {
+    width: 50,
+    height: 50,
   }
 });
 

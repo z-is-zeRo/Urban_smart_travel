@@ -26,12 +26,14 @@ function RouteStep({ step }) {
         <TransportIcon mode={step.mode} />
         <Text style={styles.stepText}>{step.instruction.replace(/<[^>]+>/g, '')}</Text>
       </TouchableOpacity>
-      <Collapsible collapsed={collapsed}>
-        <Text style={styles.stepDetails}>{step.details}</Text>
-        {step.stops && step.stops.map((stop, index) => (
-          <Text key={index} style={styles.stopText}>{stop}</Text>
-        ))}
-      </Collapsible>
+      {!collapsed && (
+        <View style={styles.stepDetails}>
+          <Text>{step.details}</Text>
+          {step.stops && step.stops.map((stop, index) => (
+            <Text key={index} style={styles.stopText}>{stop}</Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -50,18 +52,15 @@ function ItinerairePage({ route }) {
         console.error('Location permission not granted');
         return;
       }
-
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
     };
-
     getCurrentLocation();
   }, []);
 
   useEffect(() => {
     const fetchDirections = async (mode) => {
       if (!currentLocation) return;
-
       const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
       const destination = `${latitude},${longitude}`;
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
@@ -85,7 +84,6 @@ function ItinerairePage({ route }) {
         console.error("Failed to fetch directions:", error);
       }
     };
-
     fetchDirections(selectedMode);
   }, [selectedMode, currentLocation]);
 
@@ -94,10 +92,10 @@ function ItinerairePage({ route }) {
       <View style={styles.infoHeader}>
         <Text style={styles.eventName}>{eventName}</Text>
         <Text style={styles.eventAddress}>{eventAddress}</Text>
+        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.changeModeButton}>
+          <Text style={styles.changeModeText}>{selectedMode}</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.changeModeButton}>
-        <Text style={styles.changeModeText}>{selectedMode}</Text>
-      </TouchableOpacity>
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -114,9 +112,6 @@ function ItinerairePage({ route }) {
               <Text style={styles.modalText}>{mode}</Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity onPress={() => setModalVisible(false)}>
-            <Text style={styles.modalText}>Cancel</Text>
-          </TouchableOpacity>
         </View>
       </Modal>
 
@@ -148,9 +143,10 @@ const styles = StyleSheet.create({
   },
   map: {
     height: 300,
-    margin: 5,
+    marginHorizontal: 10,
+    marginTop: 10,
     borderRadius: 10,
-    overflow: 'hidden',
+    overflow: 'hidden',  // Ensures the map corners are rounded
   },
   stepsContainer: {
     flex: 1,
