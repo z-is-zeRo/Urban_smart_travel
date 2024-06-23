@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image } fr
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
-import Collapsible from 'react-native-collapsible';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
+const FLASK_API_URL = 'http://192.168.1.24:5001/predict';
 
 const icons = {
   DRIVING: require('./assets/car.png'),
@@ -41,10 +42,9 @@ function RouteStep({ step }) {
 function ItinerairePage({ route }) {
   const { latitude, longitude, eventName, eventAddress } = route.params;
   const [routeDetails, setRouteDetails] = useState([]);
-  const [selectedMode, setSelectedMode] = useState('DRIVING');
+  const [selectedMode, setSelectedMode] = useState(null); // Now null initially
   const [modalVisible, setModalVisible] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [weather, setWeather] = useState(null);
 
   useEffect(() => {
     const getCurrentLocation = async () => {
@@ -55,60 +55,70 @@ function ItinerairePage({ route }) {
       }
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
-      fetchWeatherData(location.coords.latitude, location.coords.longitude);
+      determineTransportMode(location.coords); // Determine mode after getting location
     };
     getCurrentLocation();
   }, []);
 
-  const fetchWeatherData = async (lat, lon) => {
-    const username = 'dim_shi_shang';
-    const password = '22dDnynT2G';
-    const validDateTime = '2023-06-30T15:00:00Z';
-    const parameters = 't_2m:C';
-    const format = 'json';
-    const url = `https://api.meteomatics.com/${validDateTime}/${parameters}/${lat},${lon}/${format}`;
+  // Example function to determine transport mode based on multiple factors
+  const determineTransportMode = async (location) => {
+    const weather = await fetchWeatherData(location.latitude, location.longitude); // Example call to fetch weather
+    const timeOfDay = new Date().getHours();
+    const distance = calculateDistance(location, { latitude, longitude }); // Placeholder function
 
-    try {
-      const response = await axios.get(url, {
-        auth: {
-          username: username,
-          password: password
-        }
-      });
-      setWeather(response.data);
-    } catch (error) {
-      console.error('Failed to fetch weather data:', error);
+    // Example rule-based logic
+    if (distance > 10) {
+      setSelectedMode('DRIVING');
+    } else if (weather.temp < 5 || weather.condition === 'rainy') {
+      setSelectedMode('TRANSIT');
+    } else if (timeOfDay > 6 && timeOfDay < 22) {
+      setSelectedMode('WALKING');
+    } else {
+      setSelectedMode('BICYCLING');
     }
   };
 
-  useEffect(() => {
-    if (!currentLocation) return;
-    const fetchDirections = async (mode) => {
-      const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
-      const destination = `${latitude},${longitude}`;
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
+  // Placeholder to fetch weather
+  const fetchWeatherData = async (lat, lon) => {
+    // Your API call logic here
+    return { temp: 22, condition: 'sunny' }; // Mocked data
+  };
 
-      try {
-        const response = await axios.get(url);
-        if (response.data.status === 'OK' && response.data.routes.length > 0) {
-          const route = response.data.routes[0];
-          const steps = route.legs[0].steps.map(step => ({
-            mode: mode,
-            instruction: step.html_instructions,
-            details: `${step.distance.text}, about ${step.duration.text}`,
-            stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : []
-          }));
-          setRouteDetails(steps);
-        } else {
-          console.error("No routes found.");
-          setRouteDetails([]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch directions:", error);
-      }
-    };
-    fetchDirections(selectedMode);
+  // Placeholder to calculate distance
+  const calculateDistance = (origin, destination) => {
+    return Math.sqrt(Math.pow(destination.latitude - origin.latitude, 2) + Math.pow(destination.longitude - origin.longitude, 2));
+  };
+
+  useEffect(() => {
+    if (selectedMode && currentLocation) {
+      fetchDirections(selectedMode);
+    }
   }, [selectedMode, currentLocation]);
+
+  const fetchDirections = async (mode) => {
+    const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
+    const destination = `${latitude},${longitude}`;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
+
+    try {
+      const response = await axios.get(url);
+      if (response.data.status === 'OK' && response.data.routes.length > 0) {
+        const route = response.data.routes[0];
+        const steps = route.legs[0].steps.map(step => ({
+          mode: mode,
+          instruction: step.html_instructions,
+          details: `${step.distance.text}, about ${step.duration.text}`,
+          stops: step.transit_details ? step.transit_details.stops.map(stop => stop.name) : []
+        }));
+        setRouteDetails(steps);
+      } else {
+        console.error("No routes found.");
+        setRouteDetails([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch directions:", error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -116,7 +126,7 @@ function ItinerairePage({ route }) {
         <Text style={styles.eventName}>{eventName}</Text>
         <Text style={styles.eventAddress}>{eventAddress}</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.changeModeButton}>
-          <Text style={styles.changeModeText}>{selectedMode}</Text>
+          <Text style={styles.changeModeText}>{selectedMode || 'Select Mode'}</Text>
         </TouchableOpacity>
       </View>
       <Modal
@@ -169,7 +179,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginTop: 10,
     borderRadius: 10,
-    overflow: 'hidden',  // Ensures the map corners are rounded
+    overflow: 'hidden',
   },
   stepsContainer: {
     flex: 1,
