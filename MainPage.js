@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Tex
 import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
+import { Linking } from 'react-native';
 
 const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'lightgrey',
     padding: 10,
-    marginHorizontal: 10,
+    marginHorizontal: 10, 
     marginBottom: 10,
     borderRadius: 10,
   },

@@ -1,9 +1,13 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { LogBox } from 'react-native';
 import ActivitiesScreen from './ActivitiesScreen';
-import ItinerairePage from './ItinerairePage';  // Assurez-vous que ce chemin est correct
+import ItinerairePage from './ItinerairePage';
 import TabNavigator from './TabNavigator';
+
+// Ignorer tous les avertissements de logs
+LogBox.ignoreAllLogs();
 
 const Stack = createNativeStackNavigator();
 
