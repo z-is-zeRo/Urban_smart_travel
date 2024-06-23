@@ -44,6 +44,7 @@ function ItinerairePage({ route }) {
   const [selectedMode, setSelectedMode] = useState('DRIVING');
   const [modalVisible, setModalVisible] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [weather, setWeather] = useState(null);
 
   useEffect(() => {
     const getCurrentLocation = async () => {
@@ -54,13 +55,35 @@ function ItinerairePage({ route }) {
       }
       let location = await Location.getCurrentPositionAsync({});
       setCurrentLocation(location.coords);
+      fetchWeatherData(location.coords.latitude, location.coords.longitude);
     };
     getCurrentLocation();
   }, []);
 
+  const fetchWeatherData = async (lat, lon) => {
+    const username = 'dim_shi_shang';
+    const password = '22dDnynT2G';
+    const validDateTime = '2023-06-30T15:00:00Z';
+    const parameters = 't_2m:C';
+    const format = 'json';
+    const url = `https://api.meteomatics.com/${validDateTime}/${parameters}/${lat},${lon}/${format}`;
+
+    try {
+      const response = await axios.get(url, {
+        auth: {
+          username: username,
+          password: password
+        }
+      });
+      setWeather(response.data);
+    } catch (error) {
+      console.error('Failed to fetch weather data:', error);
+    }
+  };
+
   useEffect(() => {
+    if (!currentLocation) return;
     const fetchDirections = async (mode) => {
-      if (!currentLocation) return;
       const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
       const destination = `${latitude},${longitude}`;
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode.toLowerCase()}&key=${GOOGLE_API_KEY}`;
