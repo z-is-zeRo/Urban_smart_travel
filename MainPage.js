@@ -8,8 +8,7 @@ const GOOGLE_API_KEY = 'AIzaSyAf5qZm6Y0eVYtqQSy86QrHt9sSh6DGWSs';
 
 const geocodeAddress = async (address) => {
   try {
-    const formattedAddress = address.replace(/[^a-zA-Z0-9\s,]/g, ''); 
-    const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(formattedAddress)}&key=${GOOGLE_API_KEY}`);
+    const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_API_KEY}`);
     if (response.data.status === 'OK') {
       const { lat, lng } = response.data.results[0].geometry.location;
       return { latitude: lat, longitude: lng };
@@ -19,33 +18,6 @@ const geocodeAddress = async (address) => {
   } catch (error) {
     console.error('Failed to geocode address', error);
     throw error;
-  }
-};
-
-const openCalendarToAddEvent = async () => {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
-  if (status === 'granted') {
-    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-    if (calendars.length > 0) {
-      const defaultCalendar = calendars.find(cal => cal.allowsModifications) || calendars[0];
-      const startDate = new Date();
-      const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // 2 heures plus tard
-      try {
-        const eventId = await Calendar.createEventAsync(defaultCalendar.id, {
-          title: 'Nouvel Événement',
-          startDate,
-          endDate,
-          timeZone: 'Europe/Paris'
-        });
-        await Calendar.openEventInCalendar(eventId);
-      } catch (error) {
-        console.error("Erreur lors de l'ajout de l'événement: ", error);
-      }
-    } else {
-      Alert.alert("Aucun calendrier disponible pour ajouter un événement");
-    }
-  } else {
-    Alert.alert("Permission refusée", "L'application a besoin de la permission pour accéder au calendrier.");
   }
 };
 
@@ -65,13 +37,7 @@ function MainPage() {
           const endDate = new Date();
           endDate.setFullYear(startDate.getFullYear() + 1);
           const calendarEvents = await Calendar.getEventsAsync([calendarId], startDate, endDate);
-          const eventsWithLocation = await Promise.all(calendarEvents.map(async event => {
-            if (event.location && typeof event.location === 'string') {
-              const location = await geocodeAddress(event.location);
-              return { ...event, location, originalLocation: event.location };
-            }
-            return event;
-          }));
+          const eventsWithLocation = calendarEvents.filter(event => event.location);
           setEvents(eventsWithLocation);
         }
       } else {
@@ -82,43 +48,47 @@ function MainPage() {
     fetchEvents();
   }, []);
 
-  const filteredEvents = events.filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const handleEventPress = async (event) => {
+    if (event.location && (event.location.startsWith('http://') || event.location.startsWith('https://'))) {
+      Linking.openURL(event.location);
+    } else if (event.location) {
+      try {
+        const location = await geocodeAddress(event.location);
+        navigation.navigate('ItinerairePage', {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          eventName: event.title,
+          eventAddress: event.location
+        });
+      } catch (error) {
+        Alert.alert('Error', 'Failed to process location data');
+      }
+    } else {
+      Alert.alert('Error', 'No location data available for this event');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView>
-        <Image source={require('./assets/logo.jpeg')} style={styles.logo} />
-        <Text style={styles.header}>Scheduled Activities</Text>
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Search activities..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {filteredEvents.map((event, index) => (
+      <Image source={require('./assets/logo.jpeg')} style={styles.logo} />
+      <Text style={styles.header}>Scheduled Activities</Text>
+      <TextInput
+        style={styles.searchBar}
+        placeholder="Search activities..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
+      <ScrollView style={styles.scrollView}>
+        {events.map((event, index) => (
           <TouchableOpacity
             key={index}
             style={styles.activityItem}
-            onPress={() => {
-              if (event.location) {
-                navigation.navigate('ItinerairePage', {
-                  latitude: event.location.latitude,
-                  longitude: event.location.longitude,
-                  eventName: event.title,
-                  eventAddress: event.originalLocation
-                });
-              } else {
-                Alert.alert('Error', 'No location data available for this event');
-              }
-            }}
+            onPress={() => handleEventPress(event)}
           >
             <Image source={require('./assets/calendar-icon.jpg')} style={styles.icon} />
             <Text style={styles.activityText}>{event.title} - {new Date(event.startDate).toLocaleDateString()}</Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity onPress={openCalendarToAddEvent} style={styles.addButton}>
-          <Image source={require('./assets/add2.png')} style={styles.addIcon} />
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -133,6 +103,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     alignSelf: 'center',
+    marginTop: 10,
   },
   header: {
     fontSize: 20,
@@ -148,6 +119,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'gray',
     borderRadius: 10,
+  },
+  scrollView: {
+    marginBottom: 10,
   },
   activityItem: {
     flexDirection: 'row',
@@ -165,16 +139,7 @@ const styles = StyleSheet.create({
   },
   activityText: {
     fontSize: 16,
-  },
-  addButton: {
-    alignItems: 'center',
-    padding: 10,
-  },
-  addIcon: {
-    width: 50,
-    height: 50,
   }
 });
 
-export { geocodeAddress };
 export default MainPage;

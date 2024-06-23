@@ -14,9 +14,10 @@ function HistoryPage({ navigation }) {
           const calendarId = calendars[0].id;
           const endDate = new Date();
           const startDate = new Date();
-          startDate.setMonth(endDate.getMonth() - 2); 
+          startDate.setMonth(endDate.getMonth() - 2);  // Récupère les événements des derniers deux mois
           const calendarEvents = await Calendar.getEventsAsync([calendarId], startDate, endDate);
-          setEvents(calendarEvents.slice(0, 6)); 
+          const filteredEvents = calendarEvents.filter(event => event.location).slice(0, 6);  // Filtrer les événements qui ont une localisation
+          setEvents(filteredEvents);
         }
       } else {
         Alert.alert('Permissions required', 'Calendar access is needed to fetch events.');
@@ -30,7 +31,7 @@ function HistoryPage({ navigation }) {
     <ScrollView style={styles.container}>
       <Text style={styles.header}>Historical Activities</Text>
       {events.map((event, index) => (
-        <TouchableOpacity key={index} style={styles.item}>
+        <TouchableOpacity key={index} style={styles.item} onPress={() => navigation.navigate('EventDetails', { event })}>
           <Image source={require('./assets/calendar-icon.jpg')} style={styles.icon} />
           <View style={styles.itemTextContainer}>
             <Text style={styles.itemText}>{event.title}</Text>
